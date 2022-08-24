@@ -3,3 +3,4 @@ psycopg2>=2.8
 djangorestframework==3.12.1
 django-filter==2.4.0
 djangorestframework-filters==1.0.0.dev0
+django-annoying==0.10.6
