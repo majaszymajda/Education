@@ -1,9 +1,5 @@
 
-
-from email.policy import default
-from imp import source_from_cache
-import profile
-from pyexpat import model
+from django.contrib.auth import authenticate, password_validation
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.auth.base_user import BaseUserManager
 from django.contrib.auth import get_user_model
@@ -47,22 +43,14 @@ class UserCreateSerializer(serializers.ModelSerializer):
         user.set_password(validated_data['password'])
 
         profile.user = user
-        # raise Exception
         profile.save()
-        # user.save()
-
-        # profile = Profile.objects.create(user=user)
+    
         return user
 
 
 class UserSerializer(serializers.ModelSerializer):
-    # gender = serializers.ChoiceField(source='profile.gender')
-    is_admin = serializers.BooleanField(source='profile.is_admin')
-    is_company = serializers.BooleanField(source='profile.is_company')
-    date_of_birth = serializers.DateTimeField(source='profile.date_of_birth')
-    # profile = serializers.PrimaryKeyRelatedField(read_only=False)
-
-
+    profile = ProfileSerializer()
+   
     class Meta:
         model = User
         fields = (
@@ -72,49 +60,59 @@ class UserSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "email",
-            "is_admin",
-            "is_company",
-            "date_of_birth",
+            "password",
+            "profile",
         )
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
+    profile = ProfileSerializer()
+   
     class Meta:
         model = User
-        fields = ("is_active", "first_name", "last_name")
-
-
-class ProfileSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
-    workstations = serializers.StringRelatedField(many=True)
-    work_city = serializers.StringRelatedField()
-
-    class Meta:
-        model = Profile
         fields = (
             "id",
-            "is_admin",
-            
-            "modification_time",
-            "is_removed",
-            "user",
-        )
-        extra_kwargs = {
-            "workstations": {"required": False},
-            "user": {"required": False, "read_only": True},
-        }
-
-
-class ProfileUpdateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Profile
-        fields = (
-            "gender",
-            "is_company",
-            "date_of_birth",
+            "is_active",
+            "username",
+            "first_name",
+            "last_name",
+            "email",
+            "password",
+            "profile",
         )
 
+    def update():
+        pass
 
 
+
+class UserPasswordUpdateSerializer(serializers.Serializer):
+
+    old_password = serializers.CharField(required=True, write_only=True)
+    new_password = serializers.CharField(required=True, write_only=True)
+    confirm_password = serializers.CharField(required=True, write_only=True)
+
+    default_error_messages = {"invalid_password": _("Nieprawidłowe hasło.")}
+
+    def validate_old_password(self, value):
+        user = self.context.get("view").get_object()
+        if not user.check_password(value):
+            self.fail("invalid_password")
+        return value
+
+    def validate(self, data):
+        if data["new_password"] != data["confirm_password"]:
+            raise serializers.ValidationError(
+                {"confirm_password": _("Podane hasła nie są zgodne.")}
+            )
+        password_validation.validate_password(
+            data["new_password"], self.context["request"].user
+        )
+        return data
+
+    def update(self, instance, validated_data):
+        instance.update_password(validated_data["new_password"])
+        instance.save()
+        return instance
 
 
